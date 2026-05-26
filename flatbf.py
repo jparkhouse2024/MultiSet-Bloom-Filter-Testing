@@ -1,49 +1,13 @@
+"""
+FlatBloofi packs many per-set Bloom filters into transposed bit slices.
+
+"""
+
 from __future__ import annotations
 
-import hashlib
 from typing import Dict, List, Optional
 
-
-# ============================================================
-# Bloom Filter
-# ============================================================
-
-
-class BloomFilter:
-    def __init__(self, m: int, k: int):
-        self.m = m
-        self.k = k
-        self.bits = 0
-
-    def _hashes(self, item: str):
-        for i in range(self.k):
-            h = hashlib.blake2b(
-                f"{i}:{item}".encode(),
-                digest_size=8,
-            ).digest()
-
-            yield int.from_bytes(h, "big") % self.m
-
-    def add(self, item: str):
-        for h in self._hashes(item):
-            self.bits |= (1 << h)
-
-    def contains(self, item: str) -> bool:
-        for h in self._hashes(item):
-            if ((self.bits >> h) & 1) == 0:
-                return False
-        return True
-
-    def bit_positions(self):
-        x = self.bits
-
-        while x:
-            lsb = x & -x
-            pos = lsb.bit_length() - 1
-
-            yield pos
-
-            x ^= lsb
+from BloomFilter import BloomFilter, stable_hashes
 
 
 # ============================================================
@@ -209,17 +173,7 @@ class FlatBloofi:
     # --------------------------------------------------------
 
     def _hashes(self, item: str) -> List[int]:
-        hashes = []
-
-        for i in range(self.k):
-            h = hashlib.blake2b(
-                f"{i}:{item}".encode(),
-                digest_size=8,
-            ).digest()
-
-            hashes.append(int.from_bytes(h, "big") % self.m)
-
-        return hashes
+        return list(stable_hashes(item, self.m, self.k))
 
     # --------------------------------------------------------
     # Insert

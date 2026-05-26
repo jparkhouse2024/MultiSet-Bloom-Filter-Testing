@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="580" viewBox="0 0 920 580">
+<rect width="100%" height="100%" fill="white"/>
+<text x="460.0" y="28" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700">Overall Correctness vs Space</text>
+<line x1="92" y1="498.00" x2="682" y2="498.00" stroke="#e5e7eb"/>
+<text x="80" y="502.00" text-anchor="end" font-family="Arial" font-size="12">95%</text>
+<line x1="92" y1="410.00" x2="682" y2="410.00" stroke="#e5e7eb"/>
+<text x="80" y="414.00" text-anchor="end" font-family="Arial" font-size="12">96%</text>
+<line x1="92" y1="322.00" x2="682" y2="322.00" stroke="#e5e7eb"/>
+<text x="80" y="326.00" text-anchor="end" font-family="Arial" font-size="12">97%</text>
+<line x1="92" y1="234.00" x2="682" y2="234.00" stroke="#e5e7eb"/>
+<text x="80" y="238.00" text-anchor="end" font-family="Arial" font-size="12">98%</text>
+<line x1="92" y1="146.00" x2="682" y2="146.00" stroke="#e5e7eb"/>
+<text x="80" y="150.00" text-anchor="end" font-family="Arial" font-size="12">99%</text>
+<line x1="92" y1="58.00" x2="682" y2="58.00" stroke="#e5e7eb"/>
+<text x="80" y="62.00" text-anchor="end" font-family="Arial" font-size="12">100%</text>
+<line x1="92.00" y1="58" x2="92.00" y2="498" stroke="#f3f4f6"/>
+<text x="92.00" y="522" text-anchor="middle" font-family="Arial" font-size="12">0.0101</text>
+<line x1="387.00" y1="58" x2="387.00" y2="498" stroke="#f3f4f6"/>
+<text x="387.00" y="522" text-anchor="middle" font-family="Arial" font-size="12">0.135</text>
+<line x1="682.00" y1="58" x2="682.00" y2="498" stroke="#f3f4f6"/>
+<text x="682.00" y="522" text-anchor="middle" font-family="Arial" font-size="12">1.8</text>
+<line x1="92" y1="498" x2="682" y2="498" stroke="#111827" stroke-width="1.4"/>
+<line x1="92" y1="58" x2="92" y2="498" stroke="#111827" stroke-width="1.4"/>
+<text x="387.0" y="556" text-anchor="middle" font-family="Arial" font-size="14">Approx memory used, MB (log scale)</text>
+<text x="22" y="278.0" text-anchor="middle" font-family="Arial" font-size="14" transform="rotate(-90 22 278.0)">Correctness</text>
+<polyline points="239.34,58.00 244.41,58.00 249.34,58.00 255.49,58.00 259.90,58.00 264.14,58.00 269.49,58.00" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="239.34" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.2</title></circle>
+<circle cx="244.41" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.1</title></circle>
+<circle cx="249.34" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.05</title></circle>
+<circle cx="255.49" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.02</title></circle>
+<circle cx="259.90" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.01</title></circle>
+<circle cx="264.14" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.005</title></circle>
+<circle cx="269.49" cy="58.00" r="4.5" fill="#2563eb"><title>EC-BF: 100.00% @ p=0.002</title></circle>
+<line x1="710" y1="70" x2="732" y2="70" stroke="#2563eb" stroke-width="3"/>
+<text x="740" y="74" font-family="Arial" font-size="13">EC-BF</text>
+<polyline points="162.49,58.00 171.73,58.00 180.54,58.00 190.90,58.00 198.16,58.00 204.99,58.00 213.50,58.00" fill="none" stroke="#16a34a" stroke-width="2.5"/>
+<circle cx="162.49" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.2</title></circle>
+<circle cx="171.73" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.1</title></circle>
+<circle cx="180.54" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.05</title></circle>
+<circle cx="190.90" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.02</title></circle>
+<circle cx="198.16" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.01</title></circle>
+<circle cx="204.99" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.005</title></circle>
+<circle cx="213.50" cy="58.00" r="4.5" fill="#16a34a"><title>Bloom_Tree: 100.00% @ p=0.002</title></circle>
+<line x1="710" y1="94" x2="732" y2="94" stroke="#16a34a" stroke-width="3"/>
+<text x="740" y="98" font-family="Arial" font-size="13">Bloom_Tree</text>
+<polyline points="471.18,498.00 510.60,115.20 544.45,80.00 585.88,58.00 615.60,62.40 644.48,58.00 682.00,58.00" fill="none" stroke="#dc2626" stroke-width="2.5"/>
+<circle cx="471.18" cy="498.00" r="4.5" fill="#dc2626"><title>BhBF: 94.35% @ p=0.2</title></circle>
+<circle cx="510.60" cy="115.20" r="4.5" fill="#dc2626"><title>BhBF: 99.35% @ p=0.1</title></circle>
+<circle cx="544.45" cy="80.00" r="4.5" fill="#dc2626"><title>BhBF: 99.75% @ p=0.05</title></circle>
+<circle cx="585.88" cy="58.00" r="4.5" fill="#dc2626"><title>BhBF: 100.00% @ p=0.02</title></circle>
+<circle cx="615.60" cy="62.40" r="4.5" fill="#dc2626"><title>BhBF: 99.95% @ p=0.01</title></circle>
+<circle cx="644.48" cy="58.00" r="4.5" fill="#dc2626"><title>BhBF: 100.00% @ p=0.005</title></circle>
+<circle cx="682.00" cy="58.00" r="4.5" fill="#dc2626"><title>BhBF: 100.00% @ p=0.002</title></circle>
+<line x1="710" y1="118" x2="732" y2="118" stroke="#dc2626" stroke-width="3"/>
+<text x="740" y="122" font-family="Arial" font-size="13">BhBF</text>
+<polyline points="352.15,498.00 391.25,300.00 426.10,159.20 467.46,124.00 496.90,84.40 525.56,58.00 563.38,58.00" fill="none" stroke="#9333ea" stroke-width="2.5"/>
+<circle cx="352.15" cy="498.00" r="4.5" fill="#9333ea"><title>KBF: 90.25% @ p=0.2</title></circle>
+<circle cx="391.25" cy="300.00" r="4.5" fill="#9333ea"><title>KBF: 97.25% @ p=0.1</title></circle>
+<circle cx="426.10" cy="159.20" r="4.5" fill="#9333ea"><title>KBF: 98.85% @ p=0.05</title></circle>
+<circle cx="467.46" cy="124.00" r="4.5" fill="#9333ea"><title>KBF: 99.25% @ p=0.02</title></circle>
+<circle cx="496.90" cy="84.40" r="4.5" fill="#9333ea"><title>KBF: 99.70% @ p=0.01</title></circle>
+<circle cx="525.56" cy="58.00" r="4.5" fill="#9333ea"><title>KBF: 100.00% @ p=0.005</title></circle>
+<circle cx="563.38" cy="58.00" r="4.5" fill="#9333ea"><title>KBF: 100.00% @ p=0.002</title></circle>
+<line x1="710" y1="142" x2="732" y2="142" stroke="#9333ea" stroke-width="3"/>
+<text x="740" y="146" font-family="Arial" font-size="13">KBF</text>
+<polyline points="92.00,498.00 105.31,498.00 117.15,374.80 131.17,198.80 140.70,132.80 149.49,84.40 160.20,132.80" fill="none" stroke="#d97706" stroke-width="2.5"/>
+<circle cx="92.00" cy="498.00" r="4.5" fill="#d97706"><title>FlatBloofi: 82.70% @ p=0.2</title></circle>
+<circle cx="105.31" cy="498.00" r="4.5" fill="#d97706"><title>FlatBloofi: 92.90% @ p=0.1</title></circle>
+<circle cx="117.15" cy="374.80" r="4.5" fill="#d97706"><title>FlatBloofi: 96.40% @ p=0.05</title></circle>
+<circle cx="131.17" cy="198.80" r="4.5" fill="#d97706"><title>FlatBloofi: 98.40% @ p=0.02</title></circle>
+<circle cx="140.70" cy="132.80" r="4.5" fill="#d97706"><title>FlatBloofi: 99.15% @ p=0.01</title></circle>
+<circle cx="149.49" cy="84.40" r="4.5" fill="#d97706"><title>FlatBloofi: 99.70% @ p=0.005</title></circle>
+<circle cx="160.20" cy="132.80" r="4.5" fill="#d97706"><title>FlatBloofi: 99.15% @ p=0.002</title></circle>
+<line x1="710" y1="166" x2="732" y2="166" stroke="#d97706" stroke-width="3"/>
+<text x="740" y="170" font-family="Arial" font-size="13">FlatBloofi</text>
+</svg>

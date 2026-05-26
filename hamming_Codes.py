@@ -1,4 +1,5 @@
 import itertools
+import functools
 
 class hammoing_codes():
     def __init__(self):
@@ -32,9 +33,26 @@ class hammoing_codes():
         ]
 
 
-    def build_hamming_distance_3_codes(n: int, r: int = 6):
+    def codebook_balance_score(codes, r: int):
+        if not codes:
+            return (0, 0, 0)
+
+        counts = [
+            sum(code[idx] == "1" for code in codes)
+            for idx in range(r)
+        ]
+        size = len(codes)
+        max_bucket = max(max(count, size - count) for count in counts)
+        imbalance = sum(abs((2 * count) - size) for count in counts)
+        weight_spread = sum(abs(code.count("1") * 2 - r) for code in codes)
+
+        return (max_bucket, imbalance, weight_spread)
+
+
+    @functools.lru_cache(maxsize=None)
+    def _build_hamming_distance_3_codewords(n: int, r: int = 6):
         """
-        Build dictionary of n codewords with Hamming distance >= 3.
+        Build a tuple of n codewords with Hamming distance >= 3.
 
         Parameters:
         -----------
@@ -45,28 +63,84 @@ class hammoing_codes():
 
         Returns:
         --------
-        dict[int, str]
+        tuple[str, ...]
         """
 
         candidates = hammoing_codes.generate_hamming_codewords(r)
 
-        # Sort longer / higher-weight vectors first (better separation)
-        candidates.sort(key=lambda x: -x.count("1"))
+        # EC-BF stores one Bloom filter for each code position and bit value.
+        # Balanced columns keep those filters close to the same load, which
+        # improves the space/correctness tradeoff for a fixed number of bits.
+        candidates.sort(
+            key=lambda code: (
+                abs((2 * code.count("1")) - r),
+                code,
+            )
+        )
 
-        codes = []
+        if n <= 64 and len(candidates) <= 4096:
+            start_limit = 128
+        elif n <= 128:
+            start_limit = 16
+        else:
+            start_limit = 1
 
-        for c in candidates:
-            if hammoing_codes.is_valid_set(codes, c):
-                codes.append(c)
-            if len(codes) == n:
-                break
+        starts = candidates[:min(len(candidates), start_limit)]
+        best_codes = None
+        best_score = None
 
-        if len(codes) < n:
+        for start in starts:
+            codes = [start]
+            remaining = [code for code in candidates if code != start]
+
+            while len(codes) < n:
+                valid = [
+                    code for code in remaining
+                    if hammoing_codes.is_valid_set(codes, code)
+                ]
+
+                if not valid:
+                    break
+
+                valid.sort(
+                    key=lambda code: (
+                        hammoing_codes.codebook_balance_score(
+                            codes + [code],
+                            r,
+                        ),
+                        code,
+                    )
+                )
+                chosen = valid[0]
+                codes.append(chosen)
+                remaining.remove(chosen)
+
+            if len(codes) != n:
+                continue
+
+            score = (
+                hammoing_codes.codebook_balance_score(codes, r),
+                tuple(codes),
+            )
+
+            if best_score is None or score < best_score:
+                best_score = score
+                best_codes = codes
+
+        if best_codes is None:
             raise ValueError(
-                f"Could only generate {len(codes)} codes. "
+                f"Could not generate {n} codes. "
                 f"Increase r (currently {r})."
             )
 
+        return tuple(best_codes)
+
+
+    def build_hamming_distance_3_codes(n: int, r: int = 6):
+        """
+        Build dictionary of n balanced codewords with Hamming distance >= 3.
+        """
+        codes = hammoing_codes._build_hamming_distance_3_codewords(n, r)
         return {i: code for i, code in enumerate(codes)}
 
     def choose_r(n: int) -> int:

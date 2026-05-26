@@ -1,12 +1,130 @@
-import hashlib
+"""
+BhBF: multi-set membership using B_h sequence sums.
+
+Example:
+    bhbf = BhBF(num_sets=4, m=1000, k=3, h=3)
+    bhbf.insert("alice", 0)
+    bhbf.query("alice")    # 0
+    bhbf.query("mallory")  # None
+
+Benchmark bits:
+    BhBF does not store simple Bloom bits. Each hashed cell stores a count and
+    a sum of B_h set codes. The benchmark still reports "bits per element-set
+    pair" as total approximate memory for all cells, sequence tables, and
+    metadata divided by (inserted elements * number of sets). This lets the
+    counted integer representation be compared against bit-array filters.
+"""
+
 import itertools
+
+from BloomFilter import stable_hashes
+
+
+def generate_bh_sequence(num_codes, h=3, method="powers"):
+    """
+    Construct a B_h sequence.
+
+    A B_h sequence requires every sum of h elements, with repetitions
+    allowed, to be unique.
+
+    The default powers construction uses 1, (h + 1), (h + 1)^2, ... . Any sum
+    of at most h sequence elements is then a base-(h + 1) number with digits
+    in [0, h], so there are no carries and each bounded multiset sum is unique.
+
+    method="greedy" is available for compact small sequences, but it gets slow
+    for larger num_codes.
+    """
+    if num_codes < 0:
+        raise ValueError("num_codes must be non-negative")
+    if h <= 0:
+        raise ValueError("h must be positive")
+    if method not in {"powers", "greedy"}:
+        raise ValueError("method must be 'powers' or 'greedy'")
+
+    if method == "powers":
+        base = h + 1
+
+        return [base ** i for i in range(num_codes)]
+
+    codes = []
+    sums_by_count = {0: {0}}
+
+    for count in range(1, h + 1):
+        sums_by_count[count] = set()
+
+    candidate = 1
+
+    while len(codes) < num_codes:
+        new_sums_by_count = {}
+        valid = True
+
+        for count in range(1, h + 1):
+            new_sums = set()
+
+            for candidate_repetitions in range(1, count + 1):
+                remaining = count - candidate_repetitions
+
+                for existing_sum in sums_by_count[remaining]:
+                    total = (
+                        candidate_repetitions * candidate
+                        + existing_sum
+                    )
+
+                    if (
+                        total in sums_by_count[count]
+                        or total in new_sums
+                    ):
+                        valid = False
+                        break
+
+                    new_sums.add(total)
+
+                if not valid:
+                    break
+
+            if not valid:
+                break
+
+            new_sums_by_count[count] = new_sums
+
+        if valid:
+            codes.append(candidate)
+
+            for count, new_sums in new_sums_by_count.items():
+                sums_by_count[count].update(new_sums)
+
+        candidate += 1
+
+    return codes
+
+
+def is_bh_sequence(codes, h=3):
+    """
+    Verify the B_h uniqueness property for counts 1..h.
+    """
+    if h <= 0:
+        raise ValueError("h must be positive")
+
+    for count in range(1, h + 1):
+        seen = set()
+
+        for combo in itertools.combinations_with_replacement(
+            codes,
+            count,
+        ):
+            total = sum(combo)
+
+            if total in seen:
+                return False
+
+            seen.add(total)
+
+    return True
 
 
 class BhSequence:
     """
     Simple Bh-sequence manager.
-
-    This implementation uses a manually supplied Bh sequence.
     """
 
     def __init__(self, codes):
@@ -36,7 +154,7 @@ class BhSequence:
 
 class BhDecoder:
     """
-    Precomputes all sums up to h elements.
+    Precomputes all sums up to h elements, keyed by collision count.
 
     Used for O(1)-style decoding.
     """
@@ -46,8 +164,8 @@ class BhDecoder:
         self.h = h
         self.codes = codes
 
-        # sum -> tuple(codes)
-        self.sum_table = {}
+        # count -> sum -> tuple(codes)
+        self.sum_table = {r: {} for r in range(1, h + 1)}
 
         for r in range(1, h + 1):
 
@@ -58,15 +176,15 @@ class BhDecoder:
 
                 s = sum(combo)
 
-                self.sum_table[s] = combo
+                self.sum_table[r][s] = combo
 
-    def decode(self, total_sum):
+    def decode(self, total_sum, count):
 
-        return list(self.sum_table.get(total_sum, []))
+        return list(self.sum_table.get(count, {}).get(total_sum, []))
 
-    def is_valid_sum(self, total_sum):
+    def is_valid_sum(self, total_sum, count):
 
-        return total_sum in self.sum_table
+        return total_sum in self.sum_table.get(count, {})
 
 
 class BhBFCell:
@@ -103,21 +221,12 @@ class BhBF:
         self.h = h
 
         if bh_codes is None:
-
-            # Example B3 sequence from the paper
-            bh_codes = [
-                1,
-                22,
-                55,
-                72,
-                130,
-                200,
-                350,
-                500,
-            ]
+            bh_codes = generate_bh_sequence(num_sets, h)
 
         if num_sets > len(bh_codes):
             raise ValueError("Not enough Bh codes")
+        if not is_bh_sequence(bh_codes[:num_sets], h):
+            raise ValueError("bh_codes must be a valid B_h sequence")
 
         self.sequence = BhSequence(bh_codes)
 
@@ -135,25 +244,7 @@ class BhBF:
     # ------------------------------------------------------------
 
     def _hashes(self, element):
-
-        data = str(element).encode()
-
-        h1 = int(
-            hashlib.blake2b(
-                data,
-                digest_size=16,
-            ).hexdigest(),
-            16,
-        )
-
-        h2 = int(
-            hashlib.sha256(data).hexdigest(),
-            16,
-        )
-
-        for i in range(self.k):
-
-            yield (h1 + i * h2) % self.m
+        return stable_hashes(element, self.m, self.k, namespace="bhbf")
 
     # ------------------------------------------------------------
     # Insert
@@ -206,7 +297,7 @@ class BhBF:
 
         if cell.count <= self.h:
 
-            return self.decoder.decode(cell.sum)
+            return self.decoder.decode(cell.sum, cell.count)
 
         return None
 
@@ -293,8 +384,12 @@ class BhBF:
                     continue
 
                 remaining = cell.sum - candidate
+                remaining_count = cell.count - 1
 
-                if not self.decoder.is_valid_sum(remaining):
+                if not self.decoder.is_valid_sum(
+                    remaining,
+                    remaining_count,
+                ):
 
                     valid_candidate = False
                     break

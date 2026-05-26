@@ -1,6 +1,9 @@
-import hashlib
+"""
+Bloom Tree for multi-set membership classification.
+
+"""
+
 import math
-from collections import deque
 from BloomFilter import BloomFilter
 
 
@@ -68,6 +71,7 @@ class Bloom_Tree:
                 node.leaf_filter = BloomFilter(
                     self.bits_per_filter,
                     self.k_leaf,
+                    namespace=f"bt-leaf:{node.path_id}",
                 )
 
                 return
@@ -77,6 +81,7 @@ class Bloom_Tree:
                 bf = BloomFilter(
                     self.bits_per_filter,
                     self.k_internal,
+                    namespace=f"bt-edge:{node.path_id}:{edge_idx}",
                 )
 
                 node.edge_filters.append(bf)
@@ -99,7 +104,7 @@ class Bloom_Tree:
     # ------------------------------------------------------------
 
     def _virtual_key(self, path_id: str, key: str) -> bytes:
-        return f"{path_id}:{key}".encode()
+        return str(key).encode()
 
     # ------------------------------------------------------------
     # Convert Group ID -> Tree Path
