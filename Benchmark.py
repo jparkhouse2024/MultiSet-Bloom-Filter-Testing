@@ -16,7 +16,7 @@ from BloomTree import Bloom_Tree
 from BhBF import BhBF
 from kBF import KBF
 from flatbf import FlatBloofi, BloomFilter, FlatBloofiBlock
-from hamming_Codes import hammoing_codes
+from hamming_Codes import HammingCodes
 
 # Conceptual storage for one independently seeded hash function. The code uses
 # double hashing, but the papers count hash families as part of the structure;
@@ -171,8 +171,7 @@ def bloom_tree_max_edge_groups(num_groups, d):
 
 
 def ecbf_max_position_sets(num_sets):
-    r = hammoing_codes.choose_r(num_sets)
-    codes = hammoing_codes.build_hamming_distance_3_codes(num_sets, r)
+    codes = HammingCodes.build_hamming_distance_3_codes(num_sets)
     bucket_counts = {}
 
     for code in codes.values():
@@ -285,7 +284,7 @@ def format_params(params):
 # Dataset Generator
 # ============================================================
 
-def generate_dataset(L=10, items_per_set=200):
+def generate_dataset(L=10, items_per_set=200, string_length=3000):
     """
     Returns:
         sets = [S1, ..., SL]
@@ -298,7 +297,7 @@ def generate_dataset(L=10, items_per_set=200):
     for i in range(L):
         S = []
         while len(S) < items_per_set:
-            x = random_string(30)
+            x = random_string(string_length)
             if x in used:
                 continue
 
@@ -311,7 +310,7 @@ def generate_dataset(L=10, items_per_set=200):
     return sets, labels
 
 
-def generate_queries(sets, labels, num_queries=2000, p_in=0.7):
+def generate_queries(sets, labels, num_queries=2000, p_in=0.7, string_length=3000):
     """
     Mix of positive and negative queries.
     """
@@ -322,10 +321,10 @@ def generate_queries(sets, labels, num_queries=2000, p_in=0.7):
         if random.random() < p_in:
             x = random.choice(all_items)
         else:
-            x = random_string(12)
+            x = random_string(string_length)
 
             while x in labels:
-                x = random_string(12)
+                x = random_string(string_length)
 
         queries.append(x)
 
@@ -1285,7 +1284,7 @@ def run_all(
 if __name__ == "__main__":
     L = 10
     SET_SIZE = 200
-    NUM_QUERIES = 10000
+    NUM_QUERIES = 1000
     P_IN = 0.5
     SEED = 0
 

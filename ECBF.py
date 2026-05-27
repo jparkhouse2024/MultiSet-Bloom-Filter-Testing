@@ -19,7 +19,7 @@ Benchmark bits:
 """
 
 from BloomFilter import BloomFilter
-from hamming_Codes import hammoing_codes
+from hamming_Codes import HammingCodes
 
 
 class ECBloomFilter:
@@ -46,8 +46,7 @@ class ECBloomFilter:
         self.m = m
         self.K = K
 
-        r = hammoing_codes.choose_r(L)
-        self.c = hammoing_codes.build_hamming_distance_3_codes(L, r)
+        self.c = HammingCodes.build_hamming_distance_3_codes(L)
         self.c_inv = {code: set_id for set_id, code in self.c.items()}
         self.k_prime = len(next(iter(self.c.values())))
 
