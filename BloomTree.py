@@ -33,9 +33,12 @@ class Bloom_Tree:
         self,
         num_groups: int,
         d: int = 2,
-        bits_per_filter: int =  4000,
+        bits_per_filter_internal: int =  4000,
+        bits_per_filter_leaf: int =  4000,
         k_internal: int = None,
         k_leaf: int =7,
+        space_factor = 1.0,
+        total_items = 4000, 
     ):
         self.g = num_groups
         self.d = d
@@ -45,9 +48,12 @@ class Bloom_Tree:
         if k_internal is None:
             k_internal = max(1, round(math.log2(d)))
 
-        self.bits_per_filter = bits_per_filter
+        self.bits_per_filter_internal = bits_per_filter_internal
+        self.bits_per_filter_leaf = bits_per_filter_leaf
         self.k_internal = k_internal
         self.k_leaf = k_leaf
+        self.space_factor=space_factor
+        self.total_items = total_items
 
         self.root = self._build_tree()
 
@@ -69,7 +75,7 @@ class Bloom_Tree:
                     leaf_counter[0] += 1
 
                 node.leaf_filter = BloomFilter(
-                    self.bits_per_filter,
+                    int(self.bits_per_filter_leaf*self.space_factor),
                     self.k_leaf,
                     namespace=f"bt-leaf:{node.path_id}",
                 )
@@ -78,8 +84,14 @@ class Bloom_Tree:
 
             for edge_idx in range(self.d):
 
+                bt_n_level_i = self.total_items/self.d**(node.depth)
+
+                bt_m_level_i= math.ceil( bt_n_level_i  * self.k_internal / math.log(2))
+
+                '''This choice assumes sets are uniform size'''
+
                 bf = BloomFilter(
-                    self.bits_per_filter,
+                    int(bt_m_level_i*self.space_factor),
                     self.k_internal,
                     namespace=f"bt-edge:{node.path_id}:{edge_idx}",
                 )

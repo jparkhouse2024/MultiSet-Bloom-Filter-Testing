@@ -17,7 +17,7 @@ Benchmark bits:
     filters and codebook metadata divided by (inserted elements * number of
     sets). It is a normalized space cost, not a literal bit per pair.
 """
-
+import math
 from BloomFilter import BloomFilter
 from hamming_Codes import HammingCodes
 
@@ -35,16 +35,15 @@ class ECBloomFilter:
     ----------
     L : int
         Number of sets.
-    m : int
-        Number of bits in each per-position/per-bit Bloom filter.
     K : int
         Number of hash functions in each Bloom filter.
     """
 
-    def __init__(self, L, m=200000, K=3):
+    def __init__(self, L, total_items, K=3, space_factor = 1):
         self.L = L
-        self.m = m
         self.K = K
+        self.n = total_items
+        self.space_factor = space_factor
 
         self.c = HammingCodes.build_hamming_distance_3_codes(L)
         self.c_inv = {code: set_id for set_id, code in self.c.items()}
@@ -53,12 +52,12 @@ class ECBloomFilter:
         self.position_filters = [
             (
                 BloomFilter(
-                    self.m,
+                    int(math.ceil(  self.n  * self.K / math.log(2))*self.space_factor),
                     self.K,
                     namespace=f"ecbf:{idx}:0",
                 ),
                 BloomFilter(
-                    self.m,
+                    int(math.ceil( self.n  * self.K / math.log(2))*self.space_factor),
                     self.K,
                     namespace=f"ecbf:{idx}:1",
                 ),

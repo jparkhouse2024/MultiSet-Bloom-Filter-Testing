@@ -237,7 +237,7 @@ class BhBF:
             h,
         )
 
-        self.cells = [BhBFCell() for _ in range(m)]
+        self.cells = [[0]*2 for _ in range(m)]
 
     # ------------------------------------------------------------
     # Hashing
@@ -256,8 +256,8 @@ class BhBF:
 
         for idx in self._hashes(element):
 
-            self.cells[idx].count += 1
-            self.cells[idx].sum += code
+            self.cells[idx][0] += 1
+            self.cells[idx][1] += code
 
     # ------------------------------------------------------------
     # Delete
@@ -269,8 +269,8 @@ class BhBF:
 
         for idx in self._hashes(element):
 
-            self.cells[idx].count -= 1
-            self.cells[idx].sum -= code
+            self.cells[idx][0]-= 1
+            self.cells[idx][1] -= code
 
     # ------------------------------------------------------------
     # Update
@@ -283,8 +283,8 @@ class BhBF:
 
         for idx in self._hashes(element):
 
-            self.cells[idx].sum -= old_code
-            self.cells[idx].sum += new_code
+            self.cells[idx][0] -= old_code
+            self.cells[idx][1] += new_code
 
     # ------------------------------------------------------------
     # Decode Cell
@@ -292,12 +292,12 @@ class BhBF:
 
     def _decode_cell(self, cell):
 
-        if cell.count == 0:
+        if cell[0] == 0:
             return []
 
-        if cell.count <= self.h:
+        if cell[0] <= self.h:
 
-            return self.decoder.decode(cell.sum, cell.count)
+            return self.decoder.decode(cell[1], cell[0])
 
         return None
 
@@ -320,7 +320,7 @@ class BhBF:
         # Strategy 1:
         # sort by count ascending
 
-        queried_cells.sort(key=lambda c: c.count)
+        queried_cells.sort(key=lambda c: c[0])
 
         common_codes = None
 
@@ -332,7 +332,7 @@ class BhBF:
 
         for cell in queried_cells:
 
-            if cell.count == 0:
+            if cell[0] == 0:
                 return None
 
             decoded = self._decode_cell(cell)
@@ -380,11 +380,11 @@ class BhBF:
             for cell in invalid_cells:
 
                 # Only process h+1 cells
-                if cell.count != self.h + 1:
+                if cell[0] != self.h + 1:
                     continue
 
-                remaining = cell.sum - candidate
-                remaining_count = cell.count - 1
+                remaining = cell[1] - candidate
+                remaining_count = cell[0] - 1
 
                 if not self.decoder.is_valid_sum(
                     remaining,
