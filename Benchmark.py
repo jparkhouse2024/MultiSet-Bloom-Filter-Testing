@@ -16,7 +16,11 @@ from BloomTree import Bloom_Tree
 from BhBF import BhBF
 from kBF import KBF
 from flatbf import FlatBloofi, BloomFilter, FlatBloofiBlock
+from IBF import IBF
+from COMB import COMB
+
 from hamming_Codes import HammingCodes
+from Tuned_parameters import Parameters
 
 # Conceptual storage for one independently seeded hash function. The code uses
 # double hashing, but the papers count hash families as part of the structure;
@@ -33,9 +37,6 @@ def random_string(n=10):
 
 
 def deep_size(obj, seen=None):
-    """
-    Approximate memory usage (recursive).
-    """
     if seen is None:
         seen = set()
 
@@ -47,13 +48,21 @@ def deep_size(obj, seen=None):
     size = sys.getsizeof(obj)
 
     if isinstance(obj, dict):
-        size += sum(deep_size(k, seen) + deep_size(v, seen) for k, v in obj.items())
+        size += sum(
+            deep_size(k, seen) + deep_size(v, seen)
+            for k, v in obj.items()
+        )
+
+    elif isinstance(obj, (list, tuple, set, frozenset)):
+        size += sum(deep_size(i, seen) for i in obj)
 
     elif hasattr(obj, '__dict__'):
-        size += deep_size(obj.__dict__, seen)
+        size += deep_size(vars(obj), seen)
 
-    elif isinstance(obj, (list, tuple, set)):
-        size += sum(deep_size(i, seen) for i in obj)
+    elif hasattr(obj, '__slots__'):
+        for slot in obj.__slots__:
+            if hasattr(obj, slot):
+                size += deep_size(getattr(obj, slot), seen)
 
     return size
 
@@ -108,160 +117,6 @@ def bloom_tree_hash_bytes(tree):
     return hash_family_bytes(total_hashes)
 
 
-def bloom_params(n_items, target_fp):
-    """
-    Standard Bloom filter parameter selection.
-    """
-    if n_items <= 0:
-        return 1, 1
-    if not (0 < target_fp < 1):
-        raise ValueError("target_fp must be between 0 and 1")
-
-    m = math.ceil(
-        -(n_items * math.log(target_fp)) / (math.log(2) ** 2)
-    )
-    k = max(1, round((m / n_items) * math.log(2)))
-
-    return m, k
-
-
-def bloom_m_for_fixed_k(n_items, target_fp, k):
-    """
-    Pick m for a fixed number of hashes using the Bloom FP approximation.
-    """
-    if n_items <= 0:
-        return 1
-    if not (0 < target_fp < 1):
-        raise ValueError("target_fp must be between 0 and 1")
-    if k <= 0:
-        raise ValueError("k must be positive")
-
-    denominator = math.log(1 - (target_fp ** (1 / k)))
-    return math.ceil(-(k * n_items) / denominator)
-
-
-def hashes_for_m(n_items, m):
-    if n_items <= 0:
-        return 1
-
-    return max(1, round((m / n_items) * math.log(2)))
-
-
-def bloom_tree_max_edge_groups(num_groups, d):
-    height = math.ceil(math.log(num_groups, d)) if num_groups > 1 else 1
-    edge_counts = {}
-
-    for group_id in range(num_groups):
-        digits = []
-        x = group_id
-
-        for _ in range(height):
-            digits.append(x % d)
-            x //= d
-
-        path = tuple(reversed(digits))
-        prefix = ()
-
-        for edge in path:
-            edge_key = (prefix, edge)
-            edge_counts[edge_key] = edge_counts.get(edge_key, 0) + 1
-            prefix = prefix + (edge,)
-
-    return max(edge_counts.values(), default=1), height
-
-
-def ecbf_max_position_sets(num_sets):
-    codes = HammingCodes.build_hamming_distance_3_codes(num_sets)
-    bucket_counts = {}
-
-    for code in codes.values():
-        for idx, bit in enumerate(code):
-            bucket_key = (idx, bit)
-            bucket_counts[bucket_key] = bucket_counts.get(bucket_key, 0) + 1
-
-    return max(bucket_counts.values(), default=1), len(next(iter(codes.values())))
-
-
-def tuned_parameters(num_sets, items_per_set, target_fp=0.01, d=2, space_factor=1.0):
-    """
-    Derive benchmark parameters from the dataset shape.
-
-    target_fp is the intended query-level false-positive budget. Structures
-    with multiple Bloom probes split that budget across filters by union bound.
-    """
-    total_items = num_sets * items_per_set
-
-    bt_max_groups, bt_height = bloom_tree_max_edge_groups(num_sets, d)
-    bt_filter_items = max(items_per_set, bt_max_groups * items_per_set)
-    bt_filter_fp = target_fp / (bt_height + 1)
-    bt_m, bt_k_internal = bloom_params(bt_filter_items, bt_filter_fp)
-    bt_m = max(1, math.ceil(bt_m * space_factor))
-    bt_k_internal = hashes_for_m(bt_filter_items, bt_m)
-    bt_k_leaf = hashes_for_m(items_per_set, bt_m)
-
-    ecbf_max_sets, ecbf_code_len = ecbf_max_position_sets(num_sets)
-    ecbf_filter_items = max(items_per_set, ecbf_max_sets * items_per_set)
-    ecbf_filter_fp = target_fp / (ecbf_code_len + 1)
-    ecbf_m, ecbf_k = bloom_params(ecbf_filter_items, ecbf_filter_fp)
-    ecbf_m = max(1, math.ceil(ecbf_m * space_factor))
-    ecbf_k = hashes_for_m(ecbf_filter_items, ecbf_m)
-
-    _, optimal_cell_k = bloom_params(total_items, target_fp)
-    cell_h = 3
-    cell_k = min(optimal_cell_k, cell_h)
-    cell_m = bloom_m_for_fixed_k(total_items, target_fp, cell_k)
-    cell_m = max(1, math.ceil(cell_m * space_factor))
-    cell_k = min(cell_h, hashes_for_m(total_items, cell_m))
-
-    flat_filter_fp = target_fp / max(1, num_sets)
-    flat_m, flat_k = bloom_params(items_per_set, flat_filter_fp)
-    flat_m = max(1, math.ceil(flat_m * space_factor))
-    flat_k = hashes_for_m(items_per_set, flat_m)
-
-    return {
-        "EC-BF": {
-            "L": num_sets,
-            "m": ecbf_m,
-            "K": ecbf_k,
-            "space_factor": space_factor,
-            "capacity_basis": ecbf_filter_items,
-            "per_filter_fp": ecbf_filter_fp,
-        },
-        "Bloom_Tree": {
-            "num_groups": num_sets,
-            "d": d,
-            "bits_per_filter": bt_m,
-            "k_internal": bt_k_internal,
-            "k_leaf": bt_k_leaf,
-            "space_factor": space_factor,
-            "capacity_basis": bt_filter_items,
-            "per_filter_fp": bt_filter_fp,
-        },
-        "BhBF": {
-            "num_sets": num_sets,
-            "m": cell_m,
-            "k": cell_k,
-            "h": cell_h,
-            "space_factor": space_factor,
-            "capacity_basis": total_items,
-        },
-        "KBF": {
-            "m": cell_m,
-            "k": cell_k,
-            "h": cell_h,
-            "space_factor": space_factor,
-            "capacity_basis": total_items,
-        },
-        "FlatBloofi": {
-            "m": flat_m,
-            "k": flat_k,
-            "space_factor": space_factor,
-            "capacity_basis": items_per_set,
-            "per_filter_fp": flat_filter_fp,
-        },
-    }
-
-
 def format_params(params):
     display = []
 
@@ -284,7 +139,7 @@ def format_params(params):
 # Dataset Generator
 # ============================================================
 
-def generate_dataset(L=10, items_per_set=200, string_length=3000):
+def generate_dataset(L=10, items_per_set=200, string_length=30000):
     """
     Returns:
         sets = [S1, ..., SL]
@@ -295,6 +150,7 @@ def generate_dataset(L=10, items_per_set=200, string_length=3000):
     used = set()
 
     for i in range(L):
+        print(i)
         S = []
         while len(S) < items_per_set:
             x = random_string(string_length)
@@ -310,7 +166,7 @@ def generate_dataset(L=10, items_per_set=200, string_length=3000):
     return sets, labels
 
 
-def generate_queries(sets, labels, num_queries=2000, p_in=0.7, string_length=3000):
+def generate_queries(sets, labels, num_queries=2000, p_in=0.7, string_length=30000):
     """
     Mix of positive and negative queries.
     """
@@ -533,7 +389,7 @@ def score_single_label(result, prediction, true_set):
     result.total += 1
 
     is_member_query = true_set is not None
-    is_failure = prediction in {"CLASSIFICATION_FAILURE", "UNKNOWN", -1}
+    is_failure = prediction in {"CLASSIFICATION_FAILURE", "FAILURE", "UNKNOWN", -1}
 
     if is_member_query:
         result.member_total += 1
@@ -595,8 +451,9 @@ def run_ecbf(ECBFClass, params, sets, queries, labels):
     result = BenchmarkResult("EC-BF")
     bf = ECBFClass(
         L=params["L"],
-        m=params["m"],
+        total_items = params["total_items"],
         K=params["K"],
+        space_factor = params["space_factor"]
     )
 
     # --------------------------------------
@@ -645,9 +502,12 @@ def run_bloomTree(Bloom_Tree, params, sets, queries, labels):
     bf_index = Bloom_Tree(
         num_groups=params["num_groups"],
         d=params["d"],
-        bits_per_filter=params["bits_per_filter"],
+        bits_per_filter_internal=params["bits_per_filter_internal"],
+        bits_per_filter_leaf=params["bits_per_filter_leaf"],
         k_internal=params["k_internal"],
         k_leaf=params["k_leaf"],
+        space_factor = params["space_factor"],
+        total_items = params["total_items"],
     )
 
     start = time.perf_counter()
@@ -655,6 +515,7 @@ def run_bloomTree(Bloom_Tree, params, sets, queries, labels):
     for i, S in enumerate(sets):
         for x in S:
             bf_index.insert(x, i)
+
 
     result.build_time = time.perf_counter() - start
     result.space_bytes = deep_size(bf_index) + bloom_tree_hash_bytes(bf_index)
@@ -684,6 +545,8 @@ def run_bhbf(BhBFClass, params, sets, queries, labels):
         k=params["k"],
         h=params["h"],
     )
+
+    # print("bhbf init", deep_size(bf.cells), deep_size(bf.sequence), deep_size(bf.decoder)  )
 
     start = time.perf_counter()
 
@@ -777,6 +640,82 @@ def run_flatbloofi(FlatBloofiClass, params, sets, queries, labels):
 
     return result
 
+# ============================================================
+# IBF Adapter
+# ============================================================
+
+def run_IBF(IBFClass, params, sets, queries, labels):
+    result = BenchmarkResult("IBF")
+    ibf = IBFClass(
+        m=params["m"],
+        k=params["k"],
+    )
+
+    start = time.perf_counter()
+
+    for i, S in enumerate(sets):
+        for x in S:
+            ibf.insert(x, str(i))
+
+    result.build_time = time.perf_counter() - start
+    result.space_bytes = deep_size(ibf) + hash_family_bytes(params["k"])
+
+    start = time.perf_counter()
+
+    for x in queries:
+        res = ibf.query(x)
+        result.memory_accesses += params["k"]
+
+        true_set = labels.get(x)
+
+        if true_set is not None:
+            true_set = str(true_set)
+
+        score_single_label(result, res, true_set)
+
+    result.query_time = time.perf_counter() - start
+
+    return result
+
+# ============================================================
+# COMB Adapter
+# ============================================================
+
+def run_COMB(COMBClass, params, sets, queries, labels):
+    result = BenchmarkResult("COMB")
+    comb = COMBClass(
+        m=params["m"],
+        l=params["l"],
+        k=params["k"],
+        w=params["w"],
+    )
+
+    start = time.perf_counter()
+
+    for i, S in enumerate(sets):
+        for x in S:
+            comb.insert(x, str(i))
+
+    result.build_time = time.perf_counter() - start
+    result.space_bytes = deep_size(comb) + hash_family_bytes(params["k"]*params["l"])
+
+    start = time.perf_counter()
+
+    for x in queries:
+        res = comb.query(x)
+        result.memory_accesses += params["k"]*params["l"]
+
+        true_set = labels.get(x)
+
+        if true_set is not None:
+            true_set = str(true_set)
+
+        score_single_label(result, res, true_set)
+
+    result.query_time = time.perf_counter() - start
+
+    return result
+
 
 # ============================================================
 # Main Experiment
@@ -788,6 +727,8 @@ def run_suite(
     BhBFClass,
     KBFClass,
     FlatBloofiClass,
+    IBFClass,
+    COMBClass,
     L,
     set_size,
     target_fp=0.01,
@@ -797,14 +738,17 @@ def run_suite(
     p_in=0.7,
 ):
     random.seed(seed)
+    print("generate data")
     sets, labels = generate_dataset(L, items_per_set=set_size)
+    print("generate queries")
     queries = generate_queries(
         sets,
         labels,
         num_queries=num_queries,
         p_in=p_in,
     )
-    params = tuned_parameters(
+    # print("generate params")
+    params = Parameters.tuned_parameters(
         L,
         set_size,
         target_fp=target_fp,
@@ -813,18 +757,23 @@ def run_suite(
 
     results = []
 
+    print("a")
     r = run_ecbf(ECBFClass, params["EC-BF"], sets, queries, labels)
     results.append((r, params["EC-BF"]))
 
+    print("b")
     r = run_bloomTree(Bloom_Tree, params["Bloom_Tree"], sets, queries, labels)
     results.append((r, params["Bloom_Tree"]))
 
+    print("c")
     r = run_bhbf(BhBFClass, params["BhBF"], sets, queries, labels)
     results.append((r, params["BhBF"]))
 
+    print("d")
     r = run_kbf(KBFClass, params["KBF"], sets, queries, labels)
     results.append((r, params["KBF"]))
 
+    print("e")
     r = run_flatbloofi(
         FlatBloofiClass,
         params["FlatBloofi"],
@@ -833,6 +782,14 @@ def run_suite(
         labels,
     )
     results.append((r, params["FlatBloofi"]))
+
+    print("f")
+    r = run_IBF(IBFClass, params["IBF"], sets, queries, labels)
+    results.append((r, params["IBF"]))
+
+    print("g")
+    r = run_COMB(COMBClass, params["COMB"], sets, queries, labels)
+    results.append((r, params["COMB"]))
 
     return results, len(queries)
 
@@ -894,7 +851,7 @@ def write_correctness_space_svg(series, metric, title, output_path):
     bottom = 82
     plot_width = width - left - right
     plot_height = height - top - bottom
-    y_min = 0.90
+    y_min = 0.9
     y_max = 1.0
     colors = {
         "EC-BF": "#2563eb",
@@ -1036,6 +993,8 @@ def generate_diagrams(
     BhBFClass,
     KBFClass,
     FlatBloofiClass,
+    IBFClass,
+    COMBClass,
     L,
     set_size,
     seed=0,
@@ -1047,26 +1006,14 @@ def generate_diagrams(
 ):
     if space_factors is None:
         space_factors = [
-            0.003,
-            0.005,
-            0.008,
-            0.01,
-            0.015,
-            0.02,
-            0.03,
-            0.05,
-            0.08,
-            0.12,
-            0.2,
-            0.35,
-            0.6,
-            0.8,
-            1.0,
+            .7, 
+            .9,
+            1,
             1.2,
             1.5,
-            2.0,
-            3.0,
-            5.0,
+            3,
+            5,
+            7
         ]
 
     os.makedirs(output_dir, exist_ok=True)
@@ -1080,6 +1027,8 @@ def generate_diagrams(
             BhBFClass,
             KBFClass,
             FlatBloofiClass,
+            IBFClass,
+            COMBClass,
             L,
             set_size,
             target_fp=target_fp,
@@ -1186,6 +1135,8 @@ def write_metric_plot(series, metric, title, xlabel, output_base, log_x=False):
         "BhBF": "#dc2626",
         "KBF": "#9333ea",
         "FlatBloofi": "#d97706",
+        "IBF": "#0891b2",
+        "COMB": "#000000",
     }
     markers = {
         "EC-BF": "o",
@@ -1193,6 +1144,8 @@ def write_metric_plot(series, metric, title, xlabel, output_base, log_x=False):
         "BhBF": "^",
         "KBF": "D",
         "FlatBloofi": "P",
+        "IBF": "X",
+        "COMB": "v",
     }
 
     fig, ax = plt.subplots(figsize=(9.5, 6.2), dpi=150)
@@ -1250,6 +1203,8 @@ def run_all(
     BhBFClass,
     KBFClass,
     FlatBloofiClass,
+    IBFClass,
+    COMBClass,
     L,
     set_size,
     target_fp=0.01,
@@ -1264,6 +1219,8 @@ def run_all(
         BhBFClass,
         KBFClass,
         FlatBloofiClass,
+        IBFClass,
+        COMBClass,
         L,
         set_size,
         target_fp=target_fp,
@@ -1283,8 +1240,8 @@ def run_all(
 
 if __name__ == "__main__":
     L = 10
-    SET_SIZE = 200
-    NUM_QUERIES = 1000
+    SET_SIZE = 10
+    NUM_QUERIES = 40
     P_IN = 0.5
     SEED = 0
 
@@ -1294,10 +1251,12 @@ if __name__ == "__main__":
         BhBF,
         KBF,
         FlatBloofi,
+        IBF,
+        COMB,
         L,
         SET_SIZE,
         target_fp=0.2,
-        space_factor=1.5,
+        space_factor=1,
         seed=SEED,
         num_queries=NUM_QUERIES,
         p_in=P_IN,
@@ -1309,6 +1268,8 @@ if __name__ == "__main__":
         BhBF,
         KBF,
         FlatBloofi,
+        IBF,
+        COMB,
         L,
         SET_SIZE,
         seed=SEED,

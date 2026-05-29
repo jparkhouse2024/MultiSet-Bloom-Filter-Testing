@@ -77,49 +77,6 @@ class FlatBloofiBlock:
             self.layout[pos] |= (1 << slot)
 
     # --------------------------------------------------------
-    # Delete
-    # --------------------------------------------------------
-
-    def delete(self, bf_id: str, bf: BloomFilter):
-        if bf_id not in self.id_to_slot:
-            return
-
-        slot = self.id_to_slot[bf_id]
-
-        clear_mask = ~(1 << slot)
-
-        for pos in bf.bit_positions():
-            self.layout[pos] &= clear_mask
-
-        self.used_mask &= clear_mask
-
-        self.slot_to_id[slot] = None
-
-        del self.id_to_slot[bf_id]
-
-    # --------------------------------------------------------
-    # Update
-    # --------------------------------------------------------
-
-    def update(
-        self,
-        bf_id: str,
-        old_bf: BloomFilter,
-        new_bf: BloomFilter,
-    ):
-        slot = self.id_to_slot[bf_id]
-
-        clear_mask = ~(1 << slot)
-
-        # Remove old bits
-        for pos in old_bf.bit_positions():
-            self.layout[pos] &= clear_mask
-
-        # Add new bits
-        for pos in new_bf.bit_positions():
-            self.layout[pos] |= (1 << slot)
-
-    # --------------------------------------------------------
     # Query
     # --------------------------------------------------------
 
@@ -199,42 +156,6 @@ class FlatBloofi:
         self.filters[bf_id] = bf
 
     # --------------------------------------------------------
-    # Delete
-    # --------------------------------------------------------
-
-    def delete(self, bf_id: str):
-        if bf_id not in self.filters:
-            return
-
-        bf = self.filters[bf_id]
-
-        for block in self.blocks:
-            if bf_id in block.id_to_slot:
-                block.delete(bf_id, bf)
-                break
-
-        self.blocks = [b for b in self.blocks if not b.empty()]
-
-        del self.filters[bf_id]
-
-    # --------------------------------------------------------
-    # Update
-    # --------------------------------------------------------
-
-    def update(self, bf_id: str, new_bf: BloomFilter):
-        if bf_id not in self.filters:
-            raise ValueError("Unknown Bloom filter")
-
-        old_bf = self.filters[bf_id]
-
-        for block in self.blocks:
-            if bf_id in block.id_to_slot:
-                block.update(bf_id, old_bf, new_bf)
-                break
-
-        self.filters[bf_id] = new_bf
-
-    # --------------------------------------------------------
     # Query
     # --------------------------------------------------------
 
@@ -286,14 +207,3 @@ if __name__ == "__main__":
     print(index.query("cat"))
     print(index.query("banana"))
     print(index.query("unknown"))
-
-    bf4 = build_filter(M, K, ["red", "green", "blue"])
-
-    index.update("fruits", bf4)
-
-    print(index.query("banana"))
-    print(index.query("red"))
-
-    index.delete("animals")
-
-    print(index.query("cat"))

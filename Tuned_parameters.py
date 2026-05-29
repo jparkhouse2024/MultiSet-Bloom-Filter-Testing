@@ -1,5 +1,6 @@
 import math 
 from hamming_Codes import HammingCodes
+from math import comb as choose
 
 def bloom_params(n_items, target_fp):
     """
@@ -121,7 +122,40 @@ class Parameters:
         ecbf_K=6
 
 
+        '''
+        COMB:   We set w to 3, l to the lowest value that can accomidate the
+        number of sets.  
+        Furthermore, we set k=4
 
+        Since each element inserts k*w elements, we take m with relation to k*w,
+        but start with a 50/50 0/1 ratio. 
+
+        Change: w to 3 or 4. K, space_factor
+        '''
+
+        comb_w = 3
+        comb_l = comb_w
+        while choose(comb_l, comb_w) < num_sets:
+            comb_l += 1
+        
+        # target per-hash-set FP
+        p_taget= target_fp / comb_l
+
+ 
+        comb_m = math.ceil(-(total_items * comb_w * math.log(p_taget))
+                      / (math.log(2) ** 2)*space_factor)
+
+        # optimal k
+        comb_k = max(1, math.ceil((comb_m / (total_items * comb_w)) * math.log(2)))
+
+
+        '''
+        IBF, KBF, PhBF:   These each use the same principle of k hash functions 
+        into a single array, thus we use the same k and m for each starting with 
+        a 50/50 0/1 ratio. 
+
+        Change: space_factor
+        '''
 
         _, optimal_cell_k = bloom_params(total_items, target_fp)
         cell_h = 3
@@ -131,8 +165,10 @@ class Parameters:
 
         flat_filter_fp = target_fp / max(1, num_sets)
         flat_m, flat_k = bloom_params(items_per_set, flat_filter_fp)
-        flat_m = max(1, math.ceil(flat_m * space_factor))
-        flat_k = hashes_for_m(items_per_set, flat_m)
+        flat_m = int(flat_m*space_factor)
+        # flat_m, flat_k = bloom_params(items_per_set, flat_filter_fp)
+        # flat_m = max(1, math.ceil(flat_m * space_factor))
+        # flat_k = hashes_for_m(items_per_set, flat_m)
 
         result =  {
             "EC-BF": {
@@ -157,7 +193,6 @@ class Parameters:
                 "k": cell_k,
                 "h": cell_h,
                 "space_factor": space_factor,
-                "capacity_basis": total_items,
             },
             "KBF": {
                 "m": cell_m,
@@ -171,11 +206,26 @@ class Parameters:
                 "k": flat_k,
                 "space_factor": space_factor,
                 "capacity_basis": items_per_set,
-                "per_filter_fp": flat_filter_fp,
             },
             "IBF": {
                 "m": cell_m,
                 "k": cell_k,
             },
+            "COMB": {
+                "m": comb_m,
+                "l": comb_l,
+                "k": comb_k,
+                "w": comb_w,
+            },
         }
+        print(result)
         return result
+
+
+
+
+
+
+
+
+
